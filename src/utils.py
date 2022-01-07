@@ -28,6 +28,11 @@ def get_image(resize=True, resize_width=720, resize_height=480):
     
     return image
 
+def save_array_as_image(array, filename):
+    array = array.swapaxes(0,1) 
+    as_image = pygame.pixelcopy.make_surface(array)
+    filename = 'screenshots/' + filename + '.png'
+    pygame.image.save(as_image, filename)
 
 def wait_for_battle(img_fn, timeout=60, framerate=30, std_threshold=5, rgb_threshold=40):
     battle_frame_count = 0

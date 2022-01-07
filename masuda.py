@@ -42,11 +42,40 @@ def get_box_coords(debug=False):
                 pos = (col, row)
     return pos
 
-def saveArrayImage(array, filename):
-    array = array.swapaxes(0,1) 
-    as_image = pygame.pixelcopy.make_surface(array)
-    filename = 'screenshots/' + filename + '.png'
-    pygame.image.save(as_image, filename)
+# return an array of all positions that are currently highlighted using multiselect
+# done by checking a small area above each icon and testing the green values to see
+# if they are greater than a threshold
+def get_selected_coords(debug=False):
+    img = get_image()
+    OFFSET_X = 52 # step size in x direction
+    OFFSET_Y = 62 # step size in y direction
+    threshold_box = 240.0
+    threshold_party = 200.0
+    selected = []
+
+    # check party
+    for row in range(6):
+        candidate = img[122+(OFFSET_Y*row):129+(OFFSET_Y*row), 143:150] 
+        max_green_val = candidate[ :, :, 1].max()
+        if(debug):
+            print(f"(-1, {row}: {max_green_val}")
+        if max_green_val > threshold_party:
+            selected.append((-1, row))
+
+    # check box
+    for col in range(6): #these may need to be switched in order to get first appearance
+        for row in range(5):
+            candidate = img[109+(OFFSET_Y*row):111+(OFFSET_Y*row), 194+(OFFSET_X*col):197+(OFFSET_X*col)] 
+            max_green_val = candidate[ :, :, 1].max()
+            if(debug):
+                #save_array_as_image(candidate, f"{row}")
+                print(f"{row}: {max_green_val}")
+            if max_green_val > threshold_box:
+                selected.append((col, row))
+    return selected
+
+def is_selected(coord):
+    return coord in get_selected_coords()
 
 def moveTo(dst, nx, controller_index):
     curr = get_box_coords()
@@ -57,9 +86,7 @@ def moveTo(dst, nx, controller_index):
         else:
             nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
     while(get_box_coords()[1] != dst[1]):
-        curr = get_box_coords()
-        print("Adjusting row -- current: " + str(curr) + " DST: " + str(dst[1]))
-        if curr[1] < dst[1]:
+        if get_box_coords()[1] < dst[1]:
             nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
         else:
             nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
@@ -93,6 +120,8 @@ def masuda():
 
     time.sleep(5)
 
+    #save_array_as_image(get_image(), "firstselected")
+
 #    # take and save ref screenshots of hands, these dimensions should stay the same as call in getBoxPos()
 #    # outdated, but I might still use later on...
 
@@ -101,7 +130,7 @@ def masuda():
 #
 #    for i in range(6):
 #        for j in range(6):
-#            saveArrayImage(get_image()[95+(OFFSET_Y*i):99+(OFFSET_Y*i), 202+(OFFSET_X*j):208+(OFFSET_X*j), :],  str(j) + "_" + str(i))
+#            save_array_as_image(get_image()[95+(OFFSET_Y*i):99+(OFFSET_Y*i), 202+(OFFSET_X*j):208+(OFFSET_X*j), :],  str(j) + "_" + str(i))
 #            print("Saved " + str(j) + "_" + str(i) + ".png")
 #            if (j < 5):
 #               nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=2.0)
@@ -111,7 +140,7 @@ def masuda():
 #                    nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=2.0)
 #    return
 ##    for i in range(5):
-##        saveArrayImage(get_image()[87+(61*i):94+(61*i), 35:42, :], "-1_" + str(i))
+##        save_array_as_image(get_image()[87+(61*i):94+(61*i), 35:42, :], "-1_" + str(i))
 ##        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=2.0)
 #
 #
@@ -164,13 +193,16 @@ def masuda():
     moveTo((-1,1), nx, controller_index)
 
     # Select first pokemon
-    nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
-    saveArrayImage(get_image(), "oneselected")
-    moveTo((-1,5), nx, controller_index)
-    nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
-    saveArrayImage(get_image(), "pickedup")
-    moveTo((0,0), nx, controller_index)
-    nx.press_buttons(controller_index, [nx.Buttons.A])
+    while(is_selected((-1, 1)) == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+    # Select party
+    while(is_selected((-1, 5)) == False):
+        moveTo((-1,5), nx, controller_index)
+
+    #nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+    #moveTo((0,0), nx, controller_index)
+    #nx.press_buttons(controller_index, [nx.Buttons.A])
 
 
     
