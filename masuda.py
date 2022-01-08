@@ -74,24 +74,220 @@ def get_selected_coords(debug=False):
                 selected.append((col, row))
     return selected
 
+# Find the position of the picked up pokemon by converting the image to greyscale, parsing predetermined slices
+# of the screenshot and returning the first slice to surpass the white threshold, false if none are found
+def get_picked_up_coords(debug=False):
+    img = get_image()
+    img = np.dot(img[...,:3], [.3, .6, .1]) # convert to greyscale
+    box_selection = [192, 196, 96, 100] # base box crop, not sure if I want to keep this, but reduces magic numbers below
+    party_selection = [20, 24, 80, 82]
+    OFFSET_X = 52 # step size in x direction
+    OFFSET_Y = 62 # step size in y direction
+    box_threshold = 230
+    party_threshold = 210
+
+    # check party
+    for row in range(6):
+        candidate = img[party_selection[2]+(OFFSET_Y*row):party_selection[3]+(OFFSET_Y*row), party_selection[0]:party_selection[1]]
+        max_white = candidate.max()
+        if(debug):
+            print(f"(-1, {row}: {max_white}")
+        if(max_white > party_threshold):
+            return (-1, row)
+
+    # check box
+    for row in range(5): # row goes first so that we can return the FIRST instance of > white threshold
+        for col in range(6):
+            candidate = img[box_selection[2]+(OFFSET_Y*row):box_selection[3]+(OFFSET_Y*row), box_selection[0]+(OFFSET_X*col):box_selection[1]+(OFFSET_X*col)]
+            max_white = candidate.max()
+            if(debug):
+                print(f"({col}, {row}: {max_white}")
+            if(max_white > box_threshold):
+                return (col, row)
+    return False
+
 def is_selected(coord):
     return coord in get_selected_coords()
 
-def moveTo(dst, nx, controller_index):
-    curr = get_box_coords()
-    print(curr)
-    while(get_box_coords()[0] != dst[0]):
-        if get_box_coords()[0] < dst[0]:
-            nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
-        else:
-            nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
-    while(get_box_coords()[1] != dst[1]):
-        if get_box_coords()[1] < dst[1]:
-            nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
-        else:
-            nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
+def init_bookends():
+    img = get_image()[124:132, 205:213]
+    array = img.swapaxes(0,1) 
+    as_image = pygame.pixelcopy.make_surface(array)
+    filename = 'check-imgs/bookend.png'
+    pygame.image.save(as_image, filename)
+    
 
-def masuda():
+def init_breed_species():
+    img = get_image()[124:132, 205:213]
+    array = img.swapaxes(0,1) 
+    as_image = pygame.pixelcopy.make_surface(array)
+    filename = 'check-imgs/breedspeecies.png'
+    pygame.image.save(as_image, filename)
+
+
+#def picked_up():
+#    return get_picked_up_coords() != False
+
+def move_to(dst, nx, controller_index, picked_up=False):
+    if(picked_up == False):
+        while(get_box_coords()[0] != dst[0]):
+            if get_box_coords()[0] < dst[0]:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
+            else:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
+        while(get_box_coords()[1] != dst[1]):
+            if get_box_coords()[1] < dst[1]:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
+            else:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
+    else:
+        while(get_picked_up_coords(debug=True)[0] != dst[0]):
+            if get_picked_up_coords()[0] < dst[0]:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
+            else:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
+        while(get_picked_up_coords(debug=True)[1] != dst[1]):
+            if get_picked_up_coords()[1] < dst[1]:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
+            else:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
+
+# move box view to first page available
+def first_page(nx, controller_index):
+    bookend_check = np.array(Image.open("./check-imgs/bookend.png"))
+
+    found_bookend = False
+    while(found_bookend == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.L], up=2.0)
+        img = get_image()[124:132,205:213]
+        img_mse = mse(bookend_check, img)
+        print(img_mse)
+        if img_mse < 10:
+            found_bookend = True
+            break
+
+    while(found_bookend == True):
+        nx.press_buttons(controller_index, [nxbt.Buttons.R], up=2.0)
+        img = get_image()[124:132,205:213]
+        img_mse = mse(bookend_check, img)
+        print(img_mse)
+        if img_mse > 10:
+            found_bookend = False
+            break
+            
+# move box view to last page available
+def last_page(nx, controller_index):
+    bookend_check = np.array(Image.open("./check-imgs/bookend.png"))
+
+    found_bookend = False
+    while(found_bookend == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.R], up=2.0)
+        img = get_image()[124:132,205:213]
+        img_mse = mse(bookend_check, img)
+        print(img_mse)
+        if img_mse < 10:
+            found_bookend = True
+            break
+
+    while(found_bookend == True):
+        nx.press_buttons(controller_index, [nxbt.Buttons.L], up=2.0)
+        img = get_image()[124:132,205:213]
+        img_mse = mse(bookend_check, img)
+        print(img_mse)
+        if img_mse > 10:
+            found_bookend = False
+            break
+
+# intended to be used when all boxes are fully hatched, ie there are no eggs or empty spaces
+# use with caution as this is mostly untested
+# essentially a "reset"
+def release_boxes(nx, controller_index): # add num_boxes arg
+    box_menu_check = np.array(Image.open("./check-imgs/box_menu_check.png"))
+    release_select_check = np.array(Image.open("./check-imgs/release_select_check.png"))
+    release_confirmation_check = np.array(Image.open("./check-imgs/release_confirmation_check.png"))
+    release_textbox_check = np.array(Image.open("./check-imgs/release_textbox_check.png"))
+    breed_speecies_check = np.array(Image.open("./check-imgs/breedspecies.png"))
+    bookend_check = np.array(Image.open("./check-imgs/bookend.png"))
+
+    # go to first page
+    first_page(nx, controller_index)
+
+    # move to next box with intended breed pokemon in slot (0,0)
+    # TODO: reduce magic numbers, tie in img resolutions with init functions
+    pokemon_at_0_pos = get_image()[124:132, 205:213]
+    while mse(bookend_check, pokemon_at_0_pos) > 10: # while we haven't reached the end
+        if mse(breed_speecies_check, pokemon_at_0_pos) > 10: # empty space found, skip this box
+            print("skip!")
+            nx.press_buttons(controller_index, [nxbt.Buttons.R],up=2.0)
+            pokemon_at_0_pos = get_image()[124:132, 205:213] # update view
+        else:
+            print("gotta do something")
+            for col in range(6):
+                for row in range(5):
+                    # can speed this up a few seconds by "snaking" around the box
+                    move_to((col, row), nx, controller_index)
+
+        #            # Decide if there's a pokemon here
+        #
+        #            img = get_image()[124+(62*row):132+(62*row), 205+(52*col):213+(52*col)]
+        #            img_mse = mse(breed_speecies_check, img)
+        #            print(f"({col}, {row}): {img_mse}")
+        #            if img_mse > 120:
+        #                print("There's no pokemon here!")
+        #                continue
+
+                    # Open the box action menu
+                    box_menu_open = False
+                    while(box_menu_open == False):
+                        nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.2)
+                        img = get_image()[200:374, 461:594]
+                        img_mse = mse(box_menu_check, img)
+                        if img_mse < 25:
+                            box_menu_open = True
+                            break
+                    
+                    # move arrow until 'release' is selected
+                    release_selected = False
+                    while(release_selected == False):
+                        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.2)
+                        img = get_image()[317:343, 463:477]
+                        img_mse = mse(release_select_check, img)
+                        if img_mse < 50:
+                            release_selected = True
+                            break
+
+                    # press A until the arrow isn't seen anymore
+                    while(release_selected == True):
+                        nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.2)
+                        img = get_image()[317:343, 463:477]
+                        img_mse = mse(release_select_check, img)
+                        if img_mse > 50:
+                            release_selected = False
+                            break
+
+                    # move arrow until "Yes" confirmation is highlighted
+                    confirmation_selected = False
+                    while(confirmation_selected == False):
+                        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.2)
+                        img = get_image()[316:343, 462:479]
+                        img_mse = mse(release_confirmation_check, img)
+                        if img_mse < 40:
+                            confirmation_selected = False
+                            break
+
+                    # press A until white text box is gone
+                    released = False
+                    while(released == False):
+                        nx.press_buttons(controller_index, [nxbt.Buttons.A],up=1.2)
+                        img = get_image()[446:460, 452:471]
+                        img_mse = mse(release_textbox_check, img)
+                        if img_mse > 10:
+                            released = True
+                            break
+                    pokemon_at_0_pos = get_image()[124:132, 205:213] # update view
+    return
+
+def masuda(numBoxes):
     stats = None
     if os.path.isfile("stats.json"):
         with open("stats.json", "r") as f:
@@ -107,6 +303,8 @@ def masuda():
     pokemon_menu_check = np.array(Image.open("./check-imgs/pokemon_menu_check.png"))
     box_view_check = np.array(Image.open("./check-imgs/box_view_check.png"))
     multiselect_check = np.array(Image.open("./check-imgs/multiselect_ref.png"))
+    bike_check = np.array(Image.open("./check-imgs/bike-ref.png"))
+    oh_check = np.array(Image.open("./check-imgs/oh-ref.png"))
 
     # Initialize an emulated controller and connect
     # to an available Switch.
@@ -120,95 +318,199 @@ def masuda():
 
     time.sleep(5)
 
-    #save_array_as_image(get_image(), "firstselected")
+    release_boxes(nx, controller_index)
 
-#    # take and save ref screenshots of hands, these dimensions should stay the same as call in getBoxPos()
-#    # outdated, but I might still use later on...
+    #first_page(nx, controller_index)
+    #last_page(nx, controller_index)
+    return
 
-#    OFFSET_X = 52
-#    OFFSET_Y = 62
-#
-#    for i in range(6):
-#        for j in range(6):
-#            save_array_as_image(get_image()[95+(OFFSET_Y*i):99+(OFFSET_Y*i), 202+(OFFSET_X*j):208+(OFFSET_X*j), :],  str(j) + "_" + str(i))
-#            print("Saved " + str(j) + "_" + str(i) + ".png")
-#            if (j < 5):
-#               nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=2.0)
-#            else:
-#                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=2.0)
-#                for j in range(5):
-#                    nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=2.0)
-#    return
-##    for i in range(5):
-##        save_array_as_image(get_image()[87+(61*i):94+(61*i), 35:42, :], "-1_" + str(i))
-##        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=2.0)
-#
-#
+    for currentBox in range(numBoxes):
+        for currentCol in range(6):
+            # starting position: off bike, on path, eggs in party, first col empty
 
-    # press X until in menu 
-    menu_view = False
-    while (menu_view == False):
-        nx.press_buttons(controller_index, [nxbt.Buttons.X], up=1.0)
-        img = get_image()
-        img_mse = mse(menu_open_check, img)
-        add_to_stat_log(stats, f"Menu check MSE: {img_mse}")
-        if img_mse < 51:
-            menu_view = True
-            break
+            # Hop on the bike by first ensuring the registered menu is open and then checking to see if it has been closed (ie by pressing +)
+            bike_view = False
+            while (bike_view == False):
+                img = get_image()[287:350, 330:393]
+                nx.press_buttons(controller_index, [nxbt.Buttons.PLUS], up=2.0)
+                img_mse = mse(bike_check, img)
+                add_to_stat_log(stats, f"Bike check MSE: {img_mse}")
+                if img_mse < 10:
+                    print("Bike menu opened")
+                    bike_view = True
+                    break
 
-    # press A until in pokemon party
-    pokemon_view = False
-    while (pokemon_view == False):
-        nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.0)
-        img = relative_crop(get_image(), .975, 1.0, .025, 0.0)
-        img_mse = mse(pokemon_menu_check, img)
-        add_to_stat_log(stats, f"Pokemon view check MSE: {img_mse}")
-        if img_mse < 50:
-            pokemon_view = True
-            break
+            while (bike_view == True):
+                img = get_image()[287:350, 330:393]
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
+                img_mse = mse(bike_check, img)
+                add_to_stat_log(stats, f"Bike check MSE: {img_mse}")
+                if img_mse > 50:
+                    bike_view = False
+                    break
 
-    # press R until in box
-    box_view = False
-    while (box_view == False):
-        nx.press_buttons(controller_index, [nxbt.Buttons.R], up=1.0)
-        img = get_image()[38:56, 0:18, :]
-        img_mse = mse(box_view_check, img)
-        add_to_stat_log(stats, f"Box view check MSE: {img_mse}")
-        if img_mse < 50:
-            box_view = True
-            break
-
-    # press Y until multiselect is enabled
-    multiselect = False
-    while (multiselect == False):
-        nx.press_buttons(controller_index, [nxbt.Buttons.Y], up=1.0)
-        img = get_image()[0:28, 115:143, :]
-        img_mse = mse(multiselect_check, img)
-        add_to_stat_log(stats, f"Multiselect check MSE: {img_mse}")
-        if img_mse < 50:
-            box_view = True
-            break
-
-    # Move to first pokemon in party
-    moveTo((-1,1), nx, controller_index)
-
-    # Select first pokemon
-    while(is_selected((-1, 1)) == False):
-        nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
-
-    # Select party
-    while(is_selected((-1, 5)) == False):
-        moveTo((-1,5), nx, controller_index)
-
-    #nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
-    #moveTo((0,0), nx, controller_index)
-    #nx.press_buttons(controller_index, [nx.Buttons.A])
+            # On bike, now let's bike up and down until "Oh?" pops up
+            ready_to_hatch = False
+            while (ready_to_hatch == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], down=11.0)
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], down=11.0)
+                img = get_image()[398:425, 162:201]
+                img_mse = mse(oh_check, img)
+                print(str(img_mse))
+                if img_mse < 20:
+                    ready_to_hatch = True
+                    break
 
 
-    
+            # press A until "Oh?" passes by 5 times
+            # 40 x 28
+            #img = get_image()[398:425, 162:201]
+
+            # mash A 110 times to hatch
+            for i in range(110):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.0)
+
+            # Get off bike by first ensuring the registered menu is open and then checking to see if it has been closed (ie by pressing DPAD_DOWN)
+            bike_view = False
+            while (bike_view == False):
+                img = get_image()[287:350, 330:393]
+                nx.press_buttons(controller_index, [nxbt.Buttons.PLUS], up=2.0)
+                img_mse = mse(bike_check, img)
+                add_to_stat_log(stats, f"Bike check MSE: {img_mse}")
+                if img_mse < 10:
+                    print("Bike menu opened")
+                    bike_view = True
+                    break
+
+            while (bike_view == True):
+                img = get_image()[287:350, 330:393]
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
+                img_mse = mse(bike_check, img)
+                add_to_stat_log(stats, f"Bike check MSE: {img_mse}")
+                if img_mse > 50:
+                    bike_view = False
+                    break
+
+            # press X until in menu 
+            menu_view = False
+            while (menu_view == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.X], up=1.0)
+                img = get_image()
+                img_mse = mse(menu_open_check, img)
+                add_to_stat_log(stats, f"Menu check MSE: {img_mse}")
+                if img_mse < 51:
+                    menu_view = True
+                    break
+
+            # press A until in pokemon party
+            pokemon_view = False
+            while (pokemon_view == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.0)
+                img = relative_crop(get_image(), .975, 1.0, .025, 0.0)
+                img_mse = mse(pokemon_menu_check, img)
+                add_to_stat_log(stats, f"Pokemon view check MSE: {img_mse}")
+                if img_mse < 50:
+                    pokemon_view = True
+                    break
+
+            # press R until in box
+            box_view = False
+            while (box_view == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.R], up=1.0)
+                img = get_image()[38:56, 0:18, :]
+                img_mse = mse(box_view_check, img)
+                add_to_stat_log(stats, f"Box view check MSE: {img_mse}")
+                if img_mse < 50:
+                    box_view = True
+                    break
+
+            # press Y until multiselect is enabled
+            multiselect = False
+            while (multiselect == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.Y], up=1.0)
+                img = get_image()[0:28, 115:143, :]
+                img_mse = mse(multiselect_check, img)
+                add_to_stat_log(stats, f"Multiselect check MSE: {img_mse}")
+                if img_mse < 50:
+                    box_view = True
+                    break
+
+            # Move to first pokemon in party
+            move_to((-1,1), nx, controller_index)
+
+            # Select first pokemon
+            while(is_selected((-1, 1)) == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+            # Select party
+            while(is_selected((-1, 5)) == False):
+                move_to((-1,5), nx, controller_index)
+
+            # Pick up party
+            while(get_picked_up_coords() == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+            # Move to open col (currentCol)
+            move_to((currentCol,0), nx, controller_index, picked_up=True)
+            
+            # Place
+            while(get_picked_up_coords() != False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+            
+
+
+            # Move to next col (currentCol+1)
+            move_to((currentCol+1,0), nx, controller_index)
+
+            # Select first pokemon
+            while(is_selected((currentCol+1, 0)) == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+            # Select new pokemon
+            while(is_selected((currentCol+1, 4)) == False):
+                move_to((currentCol+1,4), nx, controller_index)
+
+            # Pick up new pokemon
+            while(get_picked_up_coords() == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+            # Move to party
+            move_to((-1, 1), nx, controller_index, picked_up=True)
+            
+            # Place
+            while(get_picked_up_coords() != False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+            # press B until in menu view, and then B until out of menu view
+            menu_view = False
+            while (menu_view == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.B], up=1.0)
+                img = get_image()
+                img_mse = mse(menu_open_check, img)
+                add_to_stat_log(stats, f"Menu check MSE: {img_mse}")
+                if img_mse < 60:
+                    menu_view = True
+                    break
+
+            while (menu_view == True):
+                nx.press_buttons(controller_index, [nxbt.Buttons.B], up=1.0)
+                img = get_image()
+                img_mse = mse(menu_open_check, img)
+                add_to_stat_log(stats, f"Menu check MSE: {img_mse}")
+                if img_mse > 60:
+                    menu_view = False
+                    break
 
 if __name__ == "__main__":
-    masuda()
+#    masuda(1)
+#    init_bookends()
+#    init_breed_species()
+# 15x26
+    save_array_as_image(get_image(), "nursery_man")
+    #20x15
+    #save_array_as_image(get_image()[446:460, 452:471], "release_textbox_check")
+#    print(get_picked_up_coords())
+#    get_picked_up_coords(debug=True)
     print("Done")
 #    send_message("Completed")
 
