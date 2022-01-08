@@ -198,6 +198,63 @@ def last_page(nx, controller_index):
             found_bookend = False
             break
 
+# assumes you are are standing to the left of the man
+def get_new_eggs(num_eggs, nx, controller_index):
+    egg_check = np.array(Image.open("./check-imgs/egg-ref.png"))
+    man_talking_check = np.array(Image.open("./check-imgs/man_talking_check.png"))
+    eggs_recieved = 0
+    egg_ready = False
+    i = 0
+    while(eggs_recieved < num_eggs):
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], down=1.0, up=0.2)
+        nx.press_buttons(controller_index, [nxbt.Buttons.R], down=1.0, up=0.2)
+        img = get_image()[104:124,601:618]
+        img_mse = mse(img, egg_check)
+        #print(img.max())
+        if img_mse < 10:
+#        if img.max() > 135:# should be lower to account for night
+            # egg found
+            nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], down=1.0)
+
+            print("spam A until the man asks if we want the egg")
+            egg_confirmation = False
+            while(egg_confirmation == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=0.5)
+                img = np.dot(get_image()[334:344,570:580][...,:3], [.3, .6, .1])
+                #print(img.max())
+                if img.max() > 200: 
+                    egg_confirmation = True
+                    break
+
+            print("spam A until the man asks us to take good care of it (ie pokemon nursery man title comes back up)")
+            take_good_care = False
+            while(take_good_care == False):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=0.5)
+
+                candidate = get_image()[365:384, 160:309]
+                save_array_as_image(get_image(), "wtfisgoingon")
+                img_mse = mse(man_talking_check, candidate)
+                #print(img_mse)
+                if img_mse < 10 : # because the image is so 
+                    take_good_care = True
+                    break
+
+            print("spam A until this goes away, continue")
+            while(take_good_care == True):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=0.5)
+                candidate = get_image()[365:384, 160:309]
+                img_mse = mse(man_talking_check, candidate)
+                #print(img_mse)
+                if img_mse > 10:
+                    take_good_care = False
+                    break
+            eggs_recieved = eggs_recieved + 1
+            continue
+
+        else:
+            nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], down=1.0)
+
+
 # intended to be used when all boxes are fully hatched, ie there are no eggs or empty spaces
 # use with caution as this is mostly untested
 # essentially a "reset"
@@ -318,7 +375,7 @@ def masuda(numBoxes):
 
     time.sleep(5)
 
-    release_boxes(nx, controller_index)
+    get_new_eggs(193, nx, controller_index)
 
     #first_page(nx, controller_index)
     #last_page(nx, controller_index)
@@ -502,13 +559,14 @@ def masuda(numBoxes):
                     break
 
 if __name__ == "__main__":
-#    masuda(1)
+    masuda(1)
 #    init_bookends()
 #    init_breed_species()
-# 15x26
-    save_array_as_image(get_image(), "nursery_man")
+# 17x21
+#    save_array_as_image(get_image()[104:124,601:618], "egg-ref")
     #20x15
-    #save_array_as_image(get_image()[446:460, 452:471], "release_textbox_check")
+    #150x20
+#    save_array_as_image(get_image()[365:384, 160:309], "man_talking_check")
 #    print(get_picked_up_coords())
 #    get_picked_up_coords(debug=True)
     print("Done")
