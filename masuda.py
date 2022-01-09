@@ -49,7 +49,7 @@ def get_selected_coords(debug=False):
     img = get_image()
     OFFSET_X = 52 # step size in x direction
     OFFSET_Y = 62 # step size in y direction
-    threshold_box = 240.0
+    threshold_box = 239.0 # THIS HAS BEEN RECENTLY CHANGED FROM 240
     threshold_party = 200.0
     selected = []
 
@@ -58,7 +58,7 @@ def get_selected_coords(debug=False):
         candidate = img[122+(OFFSET_Y*row):129+(OFFSET_Y*row), 143:150] 
         max_green_val = candidate[ :, :, 1].max()
         if(debug):
-            print(f"(-1, {row}: {max_green_val}")
+            print(f"(-1, {row}): {max_green_val}")
         if max_green_val > threshold_party:
             selected.append((-1, row))
 
@@ -69,7 +69,7 @@ def get_selected_coords(debug=False):
             max_green_val = candidate[ :, :, 1].max()
             if(debug):
                 #save_array_as_image(candidate, f"{row}")
-                print(f"{row}: {max_green_val}")
+                print(f"({col}, {row}): {max_green_val}")
             if max_green_val > threshold_box:
                 selected.append((col, row))
     return selected
@@ -109,6 +109,108 @@ def get_picked_up_coords(debug=False):
 def is_selected(coord):
     return coord in get_selected_coords()
 
+def move_to_nursery_man(nx, controller_index):
+    menu_open_check = np.array(Image.open("./check-imgs/menu_open.png"))
+    fence_corner_check = np.array(Image.open("./check-imgs/left_1_ref.png"))
+    fence_second_corner_check = np.array(Image.open("./check-imgs/up_1_ref.png"))
+    inline_ref = np.array(Image.open("./check-imgs/inline_with_man_ref.png"))
+
+    # FLY TO SOLACEON
+        # press X until in menu 
+    menu_view = False
+    while (menu_view == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.X], up=1.0)
+        img = get_image()
+        img_mse = mse(menu_open_check, img)
+        #print(img_mse)
+        if img_mse < 65:
+            menu_view = True
+            break
+
+    while(True):
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
+        img = get_image()[186:192, 143:149]
+        img = np.dot(img[...,:3], [.3, .6, .1]) # convert to greyscale
+        if(img.max() > 215):
+            # spam A to fly to Solaceon town (assumes we're already here)
+            for i in range(7):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.0)
+            break
+#
+    # move to corner of fence
+
+    reached_first_fence = False
+    while(reached_first_fence == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
+        img = get_image()[198:237, 294:323]
+        img_mse = mse(img, fence_corner_check)
+        print(img_mse)
+        if img_mse < 80:
+            reached_first_fence = True
+            break
+
+    # move to top corner of fence (just below man)
+    reached_second_fence = False
+    while(reached_second_fence == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
+        img = get_image()[248:279, 286:317]
+        img_mse = mse(img, fence_second_corner_check)
+        print(img_mse)
+        if img_mse < 80:
+            reached_second_fence = True
+            break
+
+    # no need to check images here, just spam the dpad_left to make sure we're against the left fence, although checking will probably speed it up
+    for i in range(3):
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], down=2.0)
+
+    # move so that we're in the same line as the old man
+    inline = False
+    while(inline == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up = 1.0)
+        img = get_image()[168:203, 404:439]
+        img_mse = mse(img, inline_ref)
+        print(img_mse)
+        if img_mse < 20:
+            inline = True
+            break
+
+def move_to_bike_path(nx, controller_index):
+    menu_open_check = np.array(Image.open("./check-imgs/menu_open.png"))
+    bike_path_ref = np.array(Image.open("./check-imgs/bike_path_ref.png"))
+    # FLY TO SOLACEON
+        # press X until in menu 
+    menu_view = False
+    while (menu_view == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.X], up=1.0)
+        img = get_image()
+        img_mse = mse(menu_open_check, img)
+        #print(img_mse)
+        if img_mse < 65:
+            menu_view = True
+            break
+
+    while(True):
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
+        img = get_image()[186:192, 143:149]
+        img = np.dot(img[...,:3], [.3, .6, .1]) # convert to greyscale
+        if(img.max() > 215):
+            # spam A to fly to Solaceon town (assumes we're already here)
+            for i in range(7):
+                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.0)
+            break
+    #
+
+    on_bike_path = False
+    while (on_bike_path == False):
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
+        img = get_image()[137:172, 501:536]
+        img_mse = mse(bike_path_ref, img)
+        print(img_mse)
+        if img_mse < 65:
+            on_bike_path = True
+            break
+
 def init_bookends():
     img = get_image()[124:132, 205:213]
     array = img.swapaxes(0,1) 
@@ -123,7 +225,6 @@ def init_breed_species():
     as_image = pygame.pixelcopy.make_surface(array)
     filename = 'check-imgs/breedspeecies.png'
     pygame.image.save(as_image, filename)
-
 
 #def picked_up():
 #    return get_picked_up_coords() != False
@@ -199,7 +300,7 @@ def last_page(nx, controller_index):
             break
 
 # assumes you are are standing to the left of the man
-def get_new_eggs(num_eggs, nx, controller_index):
+def get_new_eggs(num_eggs, nx, controller_index, stats):
     egg_check = np.array(Image.open("./check-imgs/egg-ref.png"))
     man_talking_check = np.array(Image.open("./check-imgs/man_talking_check.png"))
     eggs_recieved = 0
@@ -248,7 +349,8 @@ def get_new_eggs(num_eggs, nx, controller_index):
                 if img_mse > 10:
                     take_good_care = False
                     break
-            eggs_recieved = eggs_recieved + 1
+            stats["eggs"] += 1
+            eggs_recieved += 1
             continue
 
         else:
@@ -351,7 +453,7 @@ def masuda(numBoxes):
             stats = json.load(f)
     else:
         stats = {
-            "reset_count": 0,
+            "eggs": 0,
             "issues": 0,
             "log": []
         }
@@ -362,6 +464,8 @@ def masuda(numBoxes):
     multiselect_check = np.array(Image.open("./check-imgs/multiselect_ref.png"))
     bike_check = np.array(Image.open("./check-imgs/bike-ref.png"))
     oh_check = np.array(Image.open("./check-imgs/oh-ref.png"))
+    egg_ref = np.array(Image.open("./check-imgs/egg_at_0_0_ref.png"))
+    bookend_ref = np.array(Image.open("./check-imgs/bookend.png"))
 
     # Initialize an emulated controller and connect
     # to an available Switch.
@@ -375,11 +479,13 @@ def masuda(numBoxes):
 
     time.sleep(5)
 
-    get_new_eggs(193, nx, controller_index)
+#    release_boxes(nx, controller_index)
+#    get_new_eggs(528, nx, controller_index, stats)
+#    move_to_bike_path(nx, controller_index)
 
     #first_page(nx, controller_index)
     #last_page(nx, controller_index)
-    return
+#    return
 
     for currentBox in range(numBoxes):
         for currentCol in range(6):
@@ -514,22 +620,59 @@ def masuda(numBoxes):
             while(get_picked_up_coords() != False):
                 nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
             
+            if(currentCol + 1 < 5): # ensuring we stay within this box
+
+                # Move to next col (currentCol+1)
+                move_to((currentCol+1,0), nx, controller_index)
+
+                # Select first pokemon
+                while(is_selected((currentCol+1, 0)) == False):
+                    nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+                # Select new pokemon
+                while(is_selected((currentCol+1, 4)) == False):
+                    move_to((currentCol+1,4), nx, controller_index)
+
+                # Pick up new pokemon
+                while(get_picked_up_coords() == False):
+                    nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+            else:
+
+                # press R until we either see an egg or the bookmark pokemon
+                pokemon_at_0_pos = get_image()[124:132, 205:213]
+                indicator_found = False
+                while(indicator_found == False):
+                    nx.press_buttons(controller_index, [nxbt.Buttons.R], up=2.0)
+                    pokemon_at_0_pos = get_image()[124:132, 205:213]
+
+                    # if we see an egg, pick up (0,0)-(0,4)
+                    if (mse(pokemon_at_0_pos, egg_ref) < 20):
+
+                        indicator_found = True
+
+                        # Move to (0,0)
+                        move_to((0,0), nx, controller_index)
+
+                        # Select first pokemon
+                        while(is_selected((0, 0)) == False):
+                            nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+                        # Select new pokemon
+                        while(is_selected((0,0)) == False):
+                            move_to((currentCol+1,4), nx, controller_index)
+
+                        # Pick up new pokemon
+                        while(get_picked_up_coords() == False):
+                            nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+                    
+                    # if we see a bookend, exit
+                    if (mse(pokemon_at_0_pos, bookend_ref) < 20):
+                        return
 
 
-            # Move to next col (currentCol+1)
-            move_to((currentCol+1,0), nx, controller_index)
 
-            # Select first pokemon
-            while(is_selected((currentCol+1, 0)) == False):
-                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
-
-            # Select new pokemon
-            while(is_selected((currentCol+1, 4)) == False):
-                move_to((currentCol+1,4), nx, controller_index)
-
-            # Pick up new pokemon
-            while(get_picked_up_coords() == False):
-                nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+            # here on out it doesn't matter where we are, we can still just place in party
 
             # Move to party
             move_to((-1, 1), nx, controller_index, picked_up=True)
@@ -562,13 +705,14 @@ if __name__ == "__main__":
     masuda(1)
 #    init_bookends()
 #    init_breed_species()
-# 17x21
-#    save_array_as_image(get_image()[104:124,601:618], "egg-ref")
-    #20x15
+# 32x32
+#    save_array_as_image(get_image()[124:132, 205:213], "egg_ref")
+#                okemon_at_0_pos = get_image()[124:132, 205:213]
+   #20x15
     #150x20
 #    save_array_as_image(get_image()[365:384, 160:309], "man_talking_check")
 #    print(get_picked_up_coords())
 #    get_picked_up_coords(debug=True)
-    print("Done")
-#    send_message("Completed")
+#    print("Done")
+    send_message("Completed")
 

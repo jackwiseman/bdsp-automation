@@ -64,8 +64,8 @@
 		
 		<section id="counters">
 			<div class="counter-block">
-				<h2 class="counter-header text-center">Reset Counter</h2>
-				<div id="reset-counter" class="counter text-center">0</div>
+				<h2 class="counter-header text-center">Eggs Received</h2>
+				<div id="egg-counter" class="counter text-center">0</div>
 			</div>
 			<div class="counter-block">
 				<h2 class="counter-header text-center">Issue Counter</h2>
@@ -92,8 +92,8 @@
 			})
 			.then(function(resp) { return resp.json(); })
 			.then(function(json) {
-				let resetCounter = document.getElementById("reset-counter");
-				resetCounter.innerHTML = json['reset_count'];
+				let resetCounter = document.getElementById("egg-counter");
+				resetCounter.innerHTML = json['eggs'];
 
 				let issuesElm = document.getElementById("issue-counter");
 				issuesElm.innerHTML = json['issues']

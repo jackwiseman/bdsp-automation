@@ -120,7 +120,7 @@ def relative_crop(img, left, right, bottom, top):
 
 def add_to_stat_log(stats, msg):
     dt = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    msg = f"[{stats['reset_count']}: {dt}] {msg}"
+    msg = f"[{stats['eggs']}: {dt}] {msg}"
 
     print(msg)
 
