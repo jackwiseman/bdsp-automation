@@ -5,6 +5,7 @@ import sys
 
 from src.utils import *
 from src.notify import send_message
+from datetime import datetime
 
 import numpy as np
 from PIL import Image
@@ -290,24 +291,46 @@ def move_to_nursery_man(nx, controller_index, debug=False):
             return False
     return True
 
-def move_to_bike_path(nx, controller_index):
-    bike_path_ref = np.array(Image.open("./check-imgs/bike_path_ref.png"))
+def move_to_bike_path(nx, controller_index, debug=False):
+    ref = []
+    # load all reference images
+    for i in range(len(os.listdir("./check-imgs/bike-path/"))):
+        ref.append(np.array(Image.open("./check-imgs/bike-path/" + str(i + 1) + ".png")))
+#    print(len(os.listdir("./check-imgs/bike-path/")))
+#    ref_1 = np.array(Image.open("./check-imgs/bike_path_ref.png"))
+#    ref_2 = np.array(Image.open("./check-imgs/bike_path_ref_1.png"))
+#$    bike_path_ref = (ref_1, ref_2)
+
 
     open_menu(nx, controller_index, town_map=True)
 
-   # spam A to fly to Solaceon town (assumes we're already here)
-    for i in range(7):
+    # spam A to fly to Solaceon town (assumes we're already here)
+    for i in range(10):
         nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.0)
 
+    # close the poketech
+    nx.press_buttons(controller_index, [nxbt.Buttons.R], down=1.0, up=0.2)
+
+    img = get_image()[137:172, 501:536]
+    timeout = 4
     on_bike_path = False
     while (on_bike_path == False):
         nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
         img = get_image()[137:172, 501:536]
-        img_mse = mse(bike_path_ref, img)
-        print(img_mse)
-        if img_mse < 65:
+        img_mse = 1000 # arbitrary large num
+        for i in ref:
+            img_mse = min(mse(i, img), img_mse)
+        if debug:
+            print(f"MSE: {img_mse} Timeout: {timeout}")
+        if img_mse < 20:
             on_bike_path = True
             break
+        if timeout == 0 and not(on_bike_path): 
+            time_as_string = str(datetime.now().time())
+            save_array_as_image(img, f"bikepath_ref_update_{time_as_string}") # save potential ref
+            return False
+        timeout -= 1
+    return True
 
 def init_bookends():
     img = get_image()[124:132, 205:213]
@@ -427,6 +450,30 @@ def move_col(nx, controller_index, src_col, dst_col, debug=False):
     # Place
     while(get_picked_up_coords() != False):
         nx.press_buttons(controller_index, [nxbt.Buttons.A], up=2.0)
+
+# requires two things registered, bike at bottom
+def bike_toggle(nx, controller_index):
+    # Hop on the bike by first ensuring the registered menu is open and then checking to see if it has been closed (ie by pressing +)
+    bike_view = False
+    while (bike_view == False):
+        img = get_image()[287:350, 330:393]
+        nx.press_buttons(controller_index, [nxbt.Buttons.PLUS], up=2.0)
+        img_mse = mse(bike_check, img)
+        add_to_stat_log(stats, f"Bike check MSE: {img_mse}")
+        if img_mse < 10:
+            print("Bike menu opened")
+            bike_view = True
+            break
+
+    while (bike_view == True):
+        img = get_image()[287:350, 330:393]
+        nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
+        img_mse = mse(bike_check, img)
+        add_to_stat_log(stats, f"Bike check MSE: {img_mse}")
+        if img_mse > 50:
+            bike_view = False
+            break
+
 
 
 # assumes you are are standing to the left of the man
@@ -623,9 +670,6 @@ def release_boxes(nx, controller_index): # add num_boxes arg
     return
 
 def hatch(nx, controller_index):
-    menu_open_check = np.array(Image.open("./check-imgs/menu_open.png"))
-    box_view_check = np.array(Image.open("./check-imgs/box_view_check.png"))
-    multiselect_check = np.array(Image.open("./check-imgs/multiselect_ref.png"))
     bike_check = np.array(Image.open("./check-imgs/bike-ref.png"))
     oh_check = np.array(Image.open("./check-imgs/oh-ref.png"))
     egg_ref = np.array(Image.open("./check-imgs/egg_at_0_0_ref.png"))
@@ -635,28 +679,7 @@ def hatch(nx, controller_index):
         for currentCol in range(6):
             # starting position: off bike, on path, eggs in party, first col empty
 
-            # Hop on the bike by first ensuring the registered menu is open and then checking to see if it has been closed (ie by pressing +)
-            bike_view = False
-            while (bike_view == False):
-                img = get_image()[287:350, 330:393]
-                nx.press_buttons(controller_index, [nxbt.Buttons.PLUS], up=2.0)
-                img_mse = mse(bike_check, img)
-                add_to_stat_log(stats, f"Bike check MSE: {img_mse}")
-                if img_mse < 10:
-                    print("Bike menu opened")
-                    bike_view = True
-                    break
-
-            while (bike_view == True):
-                img = get_image()[287:350, 330:393]
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
-                img_mse = mse(bike_check, img)
-                add_to_stat_log(stats, f"Bike check MSE: {img_mse}")
-                if img_mse > 50:
-                    bike_view = False
-                    break
-
-            # On bike, now let's bike up and down until "Oh?" pops up
+                # On bike, now let's bike up and down until "Oh?" pops up
             ready_to_hatch = False
             while (ready_to_hatch == False):
                 nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], down=11.0)
@@ -821,14 +844,16 @@ def masuda(num_boxes):
     shiny_found = False
 
     while(shiny_found == False):
-        print("Heading to nursery man") # sometimes due to clouds, or the time of day, this can be buggy
+        #print("Heading to nursery man") # sometimes due to clouds, or the time of day, this can be buggy
         #return_val = False
         #while(return_val == False):
         #    return_val = move_to_nursery_man(nx, controller_index, debug=True)
-        print("Getting new eggs")
-        get_new_eggs(POKEMON_PER_BOX * num_boxes, nx, controller_index, stats)
+        #print("Getting new eggs")
+        #get_new_eggs(POKEMON_PER_BOX * num_boxes, nx, controller_index, stats)
         print("Heading to bike path")
-        move_to_bike_path(nx, controller_index)
+        return_val = False
+        while not(return_val):
+            return_val = move_to_bike_path(nx, controller_index, debug=True)
         print("Hatching")
         hatch(nx, controller_index)
         print("No shinies found, releasing boxes")
