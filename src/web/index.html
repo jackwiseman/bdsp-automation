@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Reset Hunting</title>
+	<title>Masuda Breeding</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<style type="text/css">
 		html, body {
@@ -68,13 +68,17 @@
 				<div id="egg-counter" class="counter text-center">0</div>
 			</div>
 			<div class="counter-block">
+				<h2 class="counter-header text-center">Hatched Counter</h2>
+				<div id="hatched-counter" class="counter text-center">0</div>
+			</div>
+			<div class="counter-block">
 				<h2 class="counter-header text-center">Issue Counter</h2>
 				<div id="issue-counter" class="counter text-center">0</div>
 			</div>
 		</section>
 
-		<h2 id="odds-header" class="text-center">Odds</h2>
-		<div id="odds" class="text-center">0.00%</div>
+		<!--<h2 id="odds-header" class="text-center">Odds</h2>
+		<div id="odds" class="text-center">0.00%</div>-->
 
 		<h2>Log</h2>
 		<div id="log"></div>
@@ -92,17 +96,20 @@
 			})
 			.then(function(resp) { return resp.json(); })
 			.then(function(json) {
-				let resetCounter = document.getElementById("egg-counter");
-				resetCounter.innerHTML = json['eggs'];
+				let eggCounter = document.getElementById("egg-counter");
+				eggCounter.innerHTML = json['eggs'];
+
+				let hatchedCounter = document.getElementById("hatched-counter");
+				hatchedCounter.innerHTML = json['hatched'];
 
 				let issuesElm = document.getElementById("issue-counter");
-				issuesElm.innerHTML = json['issues']
+				issuesElm.innerHTML = json['issues'];
 
-				let oddsElm = document.getElementById("odds");
-				if (Number.isInteger(json['reset_count']) && json['reset_count'] > 0) {
-					let odds = 1 - Math.pow((1-(1/4096)), json['reset_count'])
-					oddsElm.innerHTML = (100 * odds).toFixed(5) + "%";
-				}
+				// let oddsElm = document.getElementById("odds");
+				// if (Number.isInteger(json['hatched']) && json['hatched'] > 0) {
+				// 	let odds = 1 - Math.pow((1-(1/4096)), json['hatched'])
+				// 	oddsElm.innerHTML = (100 * odds).toFixed(5) + "%";
+				// }
 
 				let logElm = document.getElementById("log");
 				let log = json['log'].reverse();

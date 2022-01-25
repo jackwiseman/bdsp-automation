@@ -2,11 +2,11 @@ import time
 import json
 import os
 import sys
-from datetime import datetime
 
 from src.utils import *
 from src.notify import send_message
 from src.box_utils import *
+from datetime import datetime
 
 import numpy as np
 from PIL import Image
@@ -69,7 +69,7 @@ def move_to_nursery_man(nx, controller_index, debug=False):
         if img_mse < 20:
             reached_second_fence = True
             break
-        if timeout == 0 and not(reached_first_fence):
+        if timeout == 0 and not(reached_second_fence):
             time_as_string = str(datetime.now().time())
             save_array_as_image(img, f"corner_2_update_{time_as_string}") # save potential ref
             return False
@@ -157,30 +157,6 @@ def init_breed_species():
     filename = 'check-imgs/breedspecies.png'
     pygame.image.save(as_image, filename)
 
-def move_to(dst, nx, controller_index, picked_up=False):
-    if(picked_up == False):
-        while(get_box_coords()[0] != dst[0]):
-            if get_box_coords()[0] < dst[0]:
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
-            else:
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
-        while(get_box_coords()[1] != dst[1]):
-            if get_box_coords()[1] < dst[1]:
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
-            else:
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
-    else:
-        while(get_picked_up_coords(debug=True)[0] != dst[0]):
-            if get_picked_up_coords()[0] < dst[0]:
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
-            else:
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
-        while(get_picked_up_coords(debug=True)[1] != dst[1]):
-            if get_picked_up_coords()[1] < dst[1]:
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
-            else:
-                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
-
 # requires two things registered, bike at bottom
 def bike_toggle(nx, controller_index):
     bike_check = np.array(Image.open("./check-imgs/bike-ref.png"))
@@ -221,35 +197,38 @@ def get_new_eggs(num_eggs, nx, controller_index, stats, debug=False):
     eggs_received = 0
     egg_ready = False
 
-    # first we need to prepare the party for receiving eggs by moving the "dummy" pokemon to the party
-
-    open_box(nx, controller_index, multiselect=True)
-
-    # go to box[-1]
-    first_page(nx, controller_index, bookend_page=True)
-
-    # Move dummy col to party
-    move_col(nx, controller_index, 5, -1)
-
-    # Go to last page before first page as first_page() moves right first before calculating TODO: check logic on that
-    last_page(nx, controller_index)
-    first_page(nx, controller_index)
-
-    # Spam B until we get back to the game view
-    for i in range(15):
-        nx.press_buttons(controller_index, [nxbt.Buttons.B])
-    
-    # Now we're ready to get pokemon
+#    # first we need to prepare the party for receiving eggs by moving the "dummy" pokemon to the party
+#
+#    open_box(nx, controller_index, multiselect=True)
+#
+#    # go to box[-1]
+#    first_page(nx, controller_index, bookend_page=True)
+#
+#    # Move dummy col to party
+#    move_col(nx, controller_index, 5, -1)
+#
+#    # Go to last page before first page as first_page() moves right first before calculating TODO: check logic on that
+#    last_page(nx, controller_index)
+#    first_page(nx, controller_index)
+#
+#    # Spam B until we get back to the game view
+#    for i in range(15):
+#        nx.press_buttons(controller_index, [nxbt.Buttons.B])
+#    
+#    # Now we're ready to get pokemon
 
     while(eggs_received < num_eggs):
+        for i in range(4):
+            nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], down=1.0, up=0.2)
+            nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], down=1.0, up=0.2)
         nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], down=1.0, up=0.2)
-        nx.press_buttons(controller_index, [nxbt.Buttons.R], down=1.0, up=0.2)
+        for i in range(2):
+            nx.press_buttons(controller_index, [nxbt.Buttons.R], down=1.0, up=0.2)
         img = get_image()[104:124,601:618]
         img_mse = mse(img, egg_check)
         if debug:
-            print(img.max())
-        if img_mse < 10:
-#        if img.max() > 135:# should be lower to account for night
+            print(f"Egg check MSE: {img_mse}, Tolerance = 50")
+        if img_mse < 50: # this tolerance should be able to be lower...
             # egg found
             nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], down=1.0)
             if debug:
@@ -259,7 +238,7 @@ def get_new_eggs(num_eggs, nx, controller_index, stats, debug=False):
                 nx.press_buttons(controller_index, [nxbt.Buttons.A], up=0.5)
                 img = np.dot(get_image()[334:344,570:580][...,:3], [.3, .6, .1])
                 if debug:
-                    print(img.max())
+                    print(f"Max: {img.max()}, looking for > 200")
                 if img.max() > 200: 
                     egg_confirmation = True
                     break
@@ -272,8 +251,9 @@ def get_new_eggs(num_eggs, nx, controller_index, stats, debug=False):
 
                 candidate = get_image()[365:384, 160:309]
                 img_mse = mse(man_talking_check, candidate)
-                #print(img_mse)
-                if img_mse < 10 : 
+                if debug:
+                    print(f"MSE (with tolerance 10): {img_mse}")
+                if img_mse < 50 : 
                     take_good_care = True
                     break
 
@@ -284,12 +264,14 @@ def get_new_eggs(num_eggs, nx, controller_index, stats, debug=False):
                 candidate = get_image()[365:384, 160:309]
                 img_mse = mse(man_talking_check, candidate)
                 if(debug):
-                    print(img_mse)
+                    print(f"MSE with tolerance 10: {img_mse}")
                 if img_mse > 10:
                     take_good_care = False
                     break
             print("Received egg " + str(eggs_received + 1) + "/" + str(num_eggs))
             stats["eggs"] += 1
+            with open("stats.json", "w") as f:
+                json.dump(stats, f)
             eggs_received += 1
             continue
 
@@ -419,7 +401,7 @@ def release_boxes(stats, nx, controller_index): # add num_boxes arg
     return
 
 # starting position: off bike, on path, eggs in party, first col empty
-def hatch(nx, controller_index):
+def hatch(nx, controller_index, stats):
     bike_check = np.array(Image.open("./check-imgs/bike-ref.png"))
     oh_check = np.array(Image.open("./check-imgs/oh-ref.png"))
     egg_ref = np.array(Image.open("./check-imgs/egg_at_0_0_ref.png"))
@@ -450,6 +432,11 @@ def hatch(nx, controller_index):
             # mash A 110 times to hatch
             for i in range(110):
                 nx.press_buttons(controller_index, [nxbt.Buttons.A], up=1.0)
+
+            # Update hatch #
+            stats['hatched'] += 1
+            with open("stats.json", "w") as f:
+                json.dump(stats, f)
 
             # Get off bike and open the box
             bike_toggle(nx, controller_index)
@@ -523,33 +510,30 @@ def masuda(num_boxes):
 
     time.sleep(5)
 
-#    move_col(nx, controller_index, -1, 5, check_for_shiny=True)
-
-
     POKEMON_PER_BOX = 30
     shiny_found = False
 
     while(shiny_found == False):
-    #    solaceon(nx, controller_index)
-    #    print("Heading to nursery man") # sometimes due to clouds, or the time of day, this can be buggy
-    #    return_val = False
-    #    while(return_val == False):
-    #        return_val = move_to_nursery_man(nx, controller_index, debug=True)
-#        send_message("Getting new eggs")
-#        get_new_eggs(POKEMON_PER_BOX * num_boxes, nx, controller_index, stats)
+        #solaceon(nx, controller_index)
+       # print("Heading to nursery man") # sometimes due to clouds, or the time of day, this can be buggy
+       # return_val = False
+       # while(return_val == False):
+       #     return_val = move_to_nursery_man(nx, controller_index)
+       # send_message("Getting new eggs")
+        get_new_eggs(POKEMON_PER_BOX * num_boxes, nx, controller_index, stats, debug=True)
         send_message("Heading to bike path")
         return_val = False
         while not(return_val):
             return_val = move_to_bike_path(nx, controller_index, debug=True)
         send_message("Hatching")
-        shiny_found = hatch(nx, controller_index)
+        shiny_found = hatch(nx, controller_index, stats)
         if shiny_found == True:
             send_message("Shiny found")
             return
-        return
         if shiny_found == False:
             print("No shinies found, releasing boxes")
             release_boxes(stats, nx, controller_index)
+        return
 
 # Expected commandline input -- sudo python3 masuda.py [num_boxes]
 if __name__ == "__main__":

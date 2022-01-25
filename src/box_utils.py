@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
 import nxbt # necessary?
+from src.utils import *
 
 ## assumed menu configuration (default) -- I think?
 # [pokedex ] [   pokemon   ] [  bag  ] [trainer card]
@@ -200,6 +201,31 @@ def get_picked_up_coords(debug=False):
             if(max_white > box_threshold):
                 return (col, row)
     return False
+
+
+def move_to(dst, nx, controller_index, picked_up=False):
+    if(picked_up == False):
+        while(get_box_coords()[0] != dst[0]):
+            if get_box_coords()[0] < dst[0]:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
+            else:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
+        while(get_box_coords()[1] != dst[1]):
+            if get_box_coords()[1] < dst[1]:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
+            else:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
+    else:
+        while(get_picked_up_coords(debug=True)[0] != dst[0]):
+            if get_picked_up_coords()[0] < dst[0]:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_RIGHT], up=1.0)
+            else:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_LEFT], up=1.0)
+        while(get_picked_up_coords(debug=True)[1] != dst[1]):
+            if get_picked_up_coords()[1] < dst[1]:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_DOWN], up=1.0)
+            else:
+                nx.press_buttons(controller_index, [nxbt.Buttons.DPAD_UP], up=1.0)
 
 # Return True if (col, row) is selectd, False otherwise
 def is_selected(coord):

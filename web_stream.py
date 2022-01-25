@@ -10,7 +10,6 @@ routes = web.RouteTableDef()
 def html_response(path):
     with open(path, 'r') as f:
         html = f.read()
-    
     return web.Response(text=html, content_type='text/html')
 
 
@@ -67,7 +66,6 @@ async def handle_video(req):
 async def handle_stats(req):
     with open("stats.json", "r") as f:
         data = json.load(f)
-    
     return web.json_response(data)
 
 
