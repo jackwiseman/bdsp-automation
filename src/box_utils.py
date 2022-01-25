@@ -180,14 +180,14 @@ def get_picked_up_coords(debug=False):
     OFFSET_X = 52 # step size in x direction
     OFFSET_Y = 62 # step size in y direction
     box_threshold = 230
-    party_threshold = 210
+    party_threshold = 213
 
     # check party
     for row in range(6):
         candidate = img[party_selection[2]+(OFFSET_Y*row):party_selection[3]+(OFFSET_Y*row), party_selection[0]:party_selection[1]]
         max_white = candidate.max()
         if(debug):
-            print(f"(-1, {row}: {max_white}")
+            print(f"(-1, {row}: {max_white})")
         if(max_white > party_threshold):
             return (-1, row)
 
@@ -234,6 +234,7 @@ def is_selected(coord):
 # move box view to first page available, by searching for the "bookend" and moving one page before it
 def first_page(nx, controller_index, bookend_page=False):
     bookend_check = np.array(Image.open("./check-imgs/bookend.png"))
+    print("Looking for bookend")
 
     found_bookend = False
     while(found_bookend == False):
@@ -241,7 +242,7 @@ def first_page(nx, controller_index, bookend_page=False):
         img = get_image()[124:132,205:213]
         img_mse = mse(bookend_check, img)
         print(img_mse)
-        if img_mse < 10:
+        if img_mse < 80:
             found_bookend = True
             if bookend_page == True:
                 return
@@ -252,7 +253,7 @@ def first_page(nx, controller_index, bookend_page=False):
         img = get_image()[124:132,205:213]
         img_mse = mse(bookend_check, img)
         print(img_mse)
-        if img_mse > 10:
+        if img_mse > 80:
             found_bookend = False
             break
             
@@ -266,7 +267,7 @@ def last_page(nx, controller_index):
         img = get_image()[124:132,205:213]
         img_mse = mse(bookend_check, img)
         print(img_mse)
-        if img_mse < 10:
+        if img_mse < 80:
             found_bookend = True
             break
 
@@ -275,7 +276,7 @@ def last_page(nx, controller_index):
         img = get_image()[124:132,205:213]
         img_mse = mse(bookend_check, img)
         print(img_mse)
-        if img_mse > 10:
+        if img_mse > 80:
             found_bookend = False
             break
 
@@ -283,6 +284,7 @@ def last_page(nx, controller_index):
 def move_col(nx, controller_index, src_col, dst_col, check_for_shiny=False, debug=False):
     src = (src_col, 0)
     dst = (dst_col, 0)
+    shiny_tol = 25
     
     # adjust for party
     if src_col == -1:
@@ -306,13 +308,17 @@ def move_col(nx, controller_index, src_col, dst_col, check_for_shiny=False, debu
         while(is_selected((src[0], src[1]+4)) == False):
             img = get_image()[71:94, 692:715]
             img_mse = mse(img, shiny_ref)
-            if img_mse < 20:
+            if debug:
+                print(f"Shiny MSE: {img_mse}")
+            if img_mse < shiny_tol:
                 print("no way")
                 return True
             for i in range(src[1], src[1]+5):
                 move_to((src[0], i), nx, controller_index)
                 img = get_image()[71:94, 692:715]
                 img_mse = mse(img, shiny_ref)
+                if debug:
+                    print(f"Shiny MSE: {img_mse}")
                 if img_mse < 20:
                     print("no way")
                     return True # shiny found
